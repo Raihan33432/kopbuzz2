@@ -1,10 +1,23 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
-from check import check_numbers
 import os
+import threading
+import asyncio
+from flask import Flask
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler,
+    MessageHandler, CallbackQueryHandler,
+    ContextTypes, filters
+)
 
+app = Flask(__name__)
+
+# ওয়েব সার্ভার রুট (Render পোর্ট detect করার জন্য)
+@app.route('/')
+def home():
+    return "Telegram bot is running!"
+
+# তোমার বটের হ্যান্ডলারগুলো এখানে যোগ করো
 user_data = {}
-BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [[
@@ -33,9 +46,11 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     numbers = [n.strip() for n in text.split("\n") if n.strip()]
     grouped = [numbers[i:i+5] for i in range(0, len(numbers), 5)]
     all_found = []
-
+    # এখানে তোমার check_numbers ফাংশন দিয়ে চেক করো
+    # এখন ডেমো হিসেবে আমরা সব নাম্বারই Not Found দেখাবো
     for idx, group in enumerate(grouped, start=1):
-        result = await check_numbers(group)
+        # result = await check_numbers(group)  # তোমার চেক ফাংশন কল করো
+        result = {num: False for num in group}  # ডেমো
         formatted = f"📊 Group {idx}:\n"
         for num, status in result.items():
             mark = "✅ Telegram Account" if status else "❌ Not Found"
@@ -43,17 +58,26 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if status:
                 all_found.append(num)
         await update.message.reply_text(formatted)
-
     if all_found:
         await update.message.reply_text("📋 Telegram পাওয়া নাম্বার:\n" + "\n".join(all_found))
     else:
         await update.message.reply_text("❌ কোনো টেলিগ্রাম অ্যাকাউন্ট পাওয়া যায়নি।")
-
     del user_data[user_id]
 
+async def run_bot():
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    app_telegram = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_telegram.add_handler(CommandHandler("start", start))
+    app_telegram.add_handler(CallbackQueryHandler(handle_button))
+    app_telegram.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
+    await app_telegram.run_polling()
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(handle_button))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
-    app.run_polling()
+    # Flask আলাদা থ্রেডে চালাও
+    threading.Thread(target=run_flask).start()
+    # Telegram বট asyncio এ চালাও
+    asyncio.run(run_bot())
