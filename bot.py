@@ -10,9 +10,9 @@ from telegram.ext import (
 )
 from check import check_numbers
 
-# Environment Variables
+# Env vars
 BOT_TOKEN    = os.getenv("BOT_TOKEN")
-APP_URL      = os.getenv("APP_URL")    # e.g. https://your-service.onrender.com
+APP_URL      = os.getenv("APP_URL")    # e.g. https://kopbuzz2.onrender.com
 PORT         = int(os.getenv("PORT", "5000"))
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL  = f"{APP_URL}{WEBHOOK_PATH}"
@@ -70,16 +70,14 @@ application.add_handler(CallbackQueryHandler(handle_button))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
 
 if __name__ == "__main__":
-    # Set webhook properly
+    # 1) Set the webhook (await coroutine)
     print("Setting webhook to:", WEBHOOK_URL)
-    # Await the coroutine
     asyncio.run(application.bot.set_webhook(WEBHOOK_URL))
 
-    # Start webhook server using python-telegram-bot's built-in
+    # 2) Start the built-in webhook server
     application.run_webhook(
         listen="0.0.0.0",
         port=PORT,
         url_path=WEBHOOK_PATH,
-        webhook_url=WEBHOOK_URL,
-        webserver_kwargs={"ssl_context": None}
+        webhook_url=WEBHOOK_URL
     )
