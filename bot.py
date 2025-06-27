@@ -1,4 +1,5 @@
 import os
+import asyncio
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -8,15 +9,24 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
+from check import check_numbers  # তোমার Telethon ভিত্তিক চেকার
 
-from check import check_numbers  # তোমার টেলিফোন চেকার
-
+# Flask অ্যাপ
 app = Flask(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-APP_URL   = os.getenv("APP_URL")    # যেমন https://kopbuzz2.onrender.com
+# Environment Variables
+BOT_TOKEN   = os.getenv("BOT_TOKEN")
+APP_URL     = os.getenv("APP_URL")      # e.g. https://kopbuzz2.onrender.com
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 
+# Telegram Application তৈরির
+application = (
+    ApplicationBuilder()
+    .token(BOT_TOKEN)
+    .build()
+)
+
+# ইউজার ডাটা স্টোরেজ
 user_data = {}
 
 # ————— Handlers —————
@@ -63,33 +73,29 @@ async def handle_numbers(update: Update, context):
     del user_data[uid]
 # ——————————————————
 
-# Initialize Application for webhook
-application = (
-    ApplicationBuilder()
-    .token(BOT_TOKEN)
-    .build()
-)
-
 # Register handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(handle_button))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
 
-# Flask route to receive updates
+# Webhook এন্ডপয়েন্ট (Telegram POST করবে এখানে)
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(), application.bot)
     application.dispatch_update(update)
     return "OK", 200
 
-# Root for health-check
+# Health-check
 @app.route("/")
 def index():
     return "Bot is alive"
 
 if __name__ == "__main__":
-    # Set webhook on startup
-    application.bot.setWebhook(f"{APP_URL}{WEBHOOK_PATH}")
+    # Webhook সেট করা
+    webhook_url = f"{APP_URL}{WEBHOOK_PATH}"
+    print("Setting webhook to:", webhook_url)
+    asyncio.run(application.bot.set_webhook(webhook_url))
 
+    # Flask সার্ভার চালানো
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
