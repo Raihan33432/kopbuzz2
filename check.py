@@ -1,36 +1,28 @@
-from telethon import TelegramClient
-from telethon.tl.functions.contacts import ImportContactsRequest, DeleteContactsRequest
-from telethon.tl.types import InputPhoneContact
-from dotenv import load_dotenv
+from telethon.sync import TelegramClient
+from telethon.sessions import StringSession
+from telethon.errors.rpcerrorlist import PhoneNumberInvalidError
 import os
 
-# Load environment variables
-load_dotenv()
-api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")
-phone = os.getenv("PHONE_NUMBER")
-session_name = "checker_session"
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION_STRING = os.getenv("SESSION_STRING")
 
-async def check_numbers(phone_list):
-    """
-    Given a list of phone numbers (strings), returns a dict mapping each number to
-    True if a Telegram account exists, False otherwise.
-    Requires an existing authorized Telethon session named checker_session.session.
-    """
+client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+
+async def check_numbers(numbers):
     result = {}
-    # Use existing session (assumes session file already created and authorized)
-    async with TelegramClient(session_name, api_id, api_hash) as client:
-        # Import contacts for the given phone numbers
-        contacts = [InputPhoneContact(client_id=i, phone=number, first_name="User", last_name="")
-                    for i, number in enumerate(phone_list)]
-        imported = await client(ImportContactsRequest(contacts))
-        # Mark found users
-        for user in imported.users:
-            if user.phone:
+    async with client:
+        try:
+            contacts = await client(functions.contacts.ImportContactsRequest(
+                contacts=[types.InputPhoneContact(client_id=i, phone=number, first_name="Test", last_name="User")
+                          for i, number in enumerate(numbers)]
+            ))
+            for user in contacts.users:
                 result[user.phone] = True
-        # Any numbers not found in imported.users are False
-        for number in phone_list:
-            result.setdefault(number, False)
-        # Clean up imported contacts
-        await client(DeleteContactsRequest(imported.users))
+            for number in numbers:
+                if number not in result:
+                    result[number] = False
+        except Exception as e:
+            for number in numbers:
+                result[number] = False
     return result
