@@ -15,8 +15,8 @@ from check import check_numbers  # তোমার Telethon ভিত্তি�
 app = Flask(__name__)
 
 # Environment Variables
-BOT_TOKEN   = os.getenv("BOT_TOKEN")
-APP_URL     = os.getenv("APP_URL")      # e.g. https://kopbuzz2.onrender.com
+BOT_TOKEN    = os.getenv("BOT_TOKEN")
+APP_URL      = os.getenv("APP_URL")      # e.g. https://kopbuzz2.onrender.com
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 
 # Telegram Application তৈরির
@@ -78,24 +78,27 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(handle_button))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
 
-# Webhook এন্ডপয়েন্ট (Telegram POST করবে এখানে)
+# Webhook এন্ডপয়েন্ট
 @app.route(WEBHOOK_PATH, methods=["POST"])
 def webhook():
-    update = Update.de_json(request.get_json(), application.bot)
-    application.dispatch_update(update)
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    # প্রাপ্ত update-কে asyncio loop-এ process_update হিসেবে পাঠাও
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.process_update(update))
     return "OK", 200
 
-# Health-check
+# Health-check রুট
 @app.route("/")
 def index():
     return "Bot is alive"
 
 if __name__ == "__main__":
-    # Webhook সেট করা
+    # Webhook সেটআপ
     webhook_url = f"{APP_URL}{WEBHOOK_PATH}"
     print("Setting webhook to:", webhook_url)
     asyncio.run(application.bot.set_webhook(webhook_url))
 
-    # Flask সার্ভার চালানো
+    # Flask সার্ভার চালাও
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
