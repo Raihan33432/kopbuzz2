@@ -33,21 +33,22 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     numbers = [n.strip() for n in text.split("\n") if n.strip()]
     grouped = [numbers[i:i+5] for i in range(0, len(numbers), 5)]
     all_found = []
+    
     for idx, group in enumerate(grouped, start=1):
         result = await check_numbers(group)
-        formatted = f"📊 Group {idx}:\n
-"
+        formatted = f"📊 Group {idx}:\n"
         for num, status in result.items():
             mark = "✅ Telegram Account" if status else "❌ Not Found"
             formatted += f"{num} – {mark}\n"
             if status:
                 all_found.append(num)
         await update.message.reply_text(formatted)
+
     if all_found:
-        await update.message.reply_text("📋 Telegram পাওয়া নাম্বার:
-" + "\n".join(all_found))
+        await update.message.reply_text("📋 Telegram পাওয়া নাম্বার:\n" + "\n".join(all_found))
     else:
         await update.message.reply_text("❌ কোনো টেলিগ্রাম অ্যাকাউন্ট পাওয়া যায়নি।")
+
     del user_data[user_id]
 
 if __name__ == "__main__":
