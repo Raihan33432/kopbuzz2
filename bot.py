@@ -16,10 +16,10 @@ app = Flask(__name__)
 def home():
     return "Telegram bot is running!"
 
-# তোমার বটের হ্যান্ডলারগুলো এখানে যোগ করো
 user_data = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"/start called by user {update.message.from_user.id}")
     buttons = [[
         InlineKeyboardButton("✅ চেক করুন", callback_data="check"),
         InlineKeyboardButton("❌ ক্যান্সেল", callback_data="cancel")
@@ -30,6 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"Button clicked: {update.callback_query.data} by user {update.callback_query.from_user.id}")
     query = update.callback_query
     await query.answer()
     if query.data == "check":
@@ -39,6 +40,7 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("❌ অপারেশন বাতিল করা হয়েছে।")
 
 async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print(f"Numbers received from {update.message.from_user.id}: {update.message.text}")
     user_id = update.message.from_user.id
     if user_id not in user_data:
         return
@@ -66,6 +68,7 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def run_bot():
     BOT_TOKEN = os.getenv("BOT_TOKEN")
+    print("BOT_TOKEN:", BOT_TOKEN)  # Debug: টোকেন লোগে দেখাবে
     app_telegram = ApplicationBuilder().token(BOT_TOKEN).build()
     app_telegram.add_handler(CommandHandler("start", start))
     app_telegram.add_handler(CallbackQueryHandler(handle_button))
@@ -77,7 +80,8 @@ def run_flask():
     app.run(host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
-    # Flask আলাদা থ্রেডে চালাও
     threading.Thread(target=run_flask).start()
-    # Telegram বট asyncio এ চালাও
-    asyncio.run(run_bot())
+
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_bot())
+    loop.run_forever()
