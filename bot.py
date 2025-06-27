@@ -35,7 +35,8 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     all_found = []
     for idx, group in enumerate(grouped, start=1):
         result = await check_numbers(group)
-        formatted = f"📊 Group {idx}:
+        formatted = f"📊 Group {idx}:\n"
+
 "
         for num, status in result.items():
             mark = "✅ Telegram Account" if status else "❌ Not Found"
