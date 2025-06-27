@@ -10,19 +10,16 @@ from telegram.ext import (
     filters,
 )
 from check import check_numbers
+from dotenv import load_dotenv
 
-# Env vars
-BOT_TOKEN    = os.getenv("BOT_TOKEN")
-APP_URL      = os.getenv("APP_URL")    # e.g. https://kopbuzz2.onrender.com
-PORT         = int(os.getenv("PORT", "5000"))
-WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL  = f"{APP_URL}{WEBHOOK_PATH}"
+load_dotenv()
 
-# Build the bot application
-application = ApplicationBuilder().token(BOT_TOKEN).build()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 user_data = {}
 
-# Handlers
+application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+# /start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [[
         InlineKeyboardButton("✅ চেক করুন", callback_data="check"),
@@ -33,6 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
+# Button handler
 async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -43,6 +41,7 @@ async def handle_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await q.message.reply_text("❌ অপারেশন বাতিল করা হয়েছে।")
 
+# Phone number handler
 async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
     if uid not in user_data:
@@ -70,19 +69,14 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(handle_button))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
 
-# Deploy with webhook
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+
     async def main():
-        print("Setting webhook to:", WEBHOOK_URL)
-        await application.bot.set_webhook(WEBHOOK_URL)
         await application.initialize()
         await application.start()
-        await application.updater.start_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=WEBHOOK_PATH,
-            webhook_url=WEBHOOK_URL,
-        )
+        await application.updater.start_polling()
         await application.updater.idle()
 
     asyncio.run(main())
