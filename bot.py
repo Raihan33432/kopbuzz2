@@ -33,7 +33,7 @@ async def handle_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     numbers = [n.strip() for n in text.split("\n") if n.strip()]
     grouped = [numbers[i:i+5] for i in range(0, len(numbers), 5)]
     all_found = []
-    
+
     for idx, group in enumerate(grouped, start=1):
         result = await check_numbers(group)
         formatted = f"📊 Group {idx}:\n"
