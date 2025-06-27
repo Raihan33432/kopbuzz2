@@ -1,83 +1,36 @@
+from telethon import TelegramClient
+from telethon.tl.functions.contacts import ImportContactsRequest, DeleteContactsRequest
+from telethon.tl.types import InputPhoneContact
+from dotenv import load_dotenv
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-)
-from check import check_numbers
 
-# Env vars
-BOT_TOKEN   = os.getenv("BOT_TOKEN")
-APP_URL     = os.getenv("APP_URL")    # e.g. https://kopbuzz2.onrender.com
-PORT        = int(os.getenv("PORT", "5000"))
-WEBHOOK_PATH= f"/webhook/{BOT_TOKEN}"
-WEBHOOK_URL = f"{APP_URL}{WEBHOOK_PATH}"
+# Load environment variables
+load_dotenv()
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+phone = os.getenv("PHONE_NUMBER")
+session_name = "checker_session"
 
-# Build the bot application
-application = ApplicationBuilder().token(BOT_TOKEN).build()
-user_data  = {}
-
-# Handlers
-async def start(update: Update, context):
-    buttons = [[
-        InlineKeyboardButton("✅ চেক করুন", callback_data="check"),
-        InlineKeyboardButton("❌ ক্যান্সেল", callback_data="cancel")
-    ]]
-    await update.message.reply_text(
-        "👋 স্বাগতম! নিচের বাটনে ক্লিক করে নাম্বার যাচাই করুন।",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-async def handle_button(update: Update, context):
-    q = update.callback_query
-    await q.answer()
-    uid = q.from_user.id
-    if q.data == "check":
-        user_data[uid] = []
-        await q.message.reply_text("📥 দয়া করে নাম্বারগুলো দিন (প্রতি লাইনে একটি করে):")
-    else:
-        await q.message.reply_text("❌ অপারেশন বাতিল করা হয়েছে।")
-
-async def handle_numbers(update: Update, context):
-    uid = update.message.from_user.id
-    if uid not in user_data:
-        return
-    numbers = [n.strip() for n in update.message.text.split("\n") if n.strip()]
-    grouped = [numbers[i:i+5] for i in range(0, len(numbers), 5)]
-    found = []
-    for idx, grp in enumerate(grouped, start=1):
-        result = await check_numbers(grp)
-        text = f"📊 Group {idx}:\n"
-        for num, ok in result.items():
-            mark = "✅ Telegram Account" if ok else "❌ Not Found"
-            text += f"{num} – {mark}\n"
-            if ok:
-                found.append(num)
-        await update.message.reply_text(text)
-    if found:
-        await update.message.reply_text("📋 Telegram পাওয়া নাম্বার:\n" + "\n".join(found))
-    else:
-        await update.message.reply_text("❌ কোনো টেলিগ্রাম অ্যাকাউন্ট পাওয়া যায়নি।")
-    del user_data[uid]
-
-# Register handlers
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CallbackQueryHandler(handle_button))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_numbers))
-
-if __name__ == "__main__":
-    # Set webhook
-    print("Setting webhook to:", WEBHOOK_URL)
-    application.bot.set_webhook(WEBHOOK_URL)
-
-    # Start webhook server
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_path=WEBHOOK_PATH,
-        # Use this if you have SSL; otherwise None is fine for HTTP:
-        webserver_kwargs={"ssl_context": None}
-    )
+async def check_numbers(phone_list):
+    """
+    Given a list of phone numbers (strings), returns a dict mapping each number to
+    True if a Telegram account exists, False otherwise.
+    Requires an existing authorized Telethon session named checker_session.session.
+    """
+    result = {}
+    # Use existing session (assumes session file already created and authorized)
+    async with TelegramClient(session_name, api_id, api_hash) as client:
+        # Import contacts for the given phone numbers
+        contacts = [InputPhoneContact(client_id=i, phone=number, first_name="User", last_name="")
+                    for i, number in enumerate(phone_list)]
+        imported = await client(ImportContactsRequest(contacts))
+        # Mark found users
+        for user in imported.users:
+            if user.phone:
+                result[user.phone] = True
+        # Any numbers not found in imported.users are False
+        for number in phone_list:
+            result.setdefault(number, False)
+        # Clean up imported contacts
+        await client(DeleteContactsRequest(imported.users))
+    return result
